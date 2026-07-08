@@ -5,280 +5,325 @@ from datetime import date
 st.set_page_config(page_title="Assistente GGWEB - Orçamentos", layout="wide")
 
 st.title("Assistente de Orçamentos GGWEB")
-st.caption("Ferramenta de apoio à análise de pedidos de orçamento para gráfica.")
+st.caption("Tradutor de pedidos de clientes para linguagem técnica de gráfica e guião GGWEB.")
 
-# ----------------------------
-# Base simples de produtos
-# ----------------------------
-PRODUTOS = {
-    "Cartões de visita": {
-        "keywords": ["cartão", "cartoes", "cartões", "visita", "business card"],
-        "formato": "85x55 mm ou 90x50 mm",
-        "papel": "Couché 350g / Cartolina 350g",
-        "impressao": "4/4 cores se frente e verso; 4/0 se apenas frente",
-        "acabamentos": ["Corte", "Plastificação opcional", "Cantos redondos opcional"],
-        "perguntas": ["Qual o formato final?", "Frente apenas ou frente e verso?", "Com ou sem plastificação?", "O cliente fornece arte-final?"],
-    },
-    "Flyer / Panfleto": {
-        "keywords": ["flyer", "panfleto", "folheto", "a5", "a6", "a4"],
-        "formato": "A6, A5, A4 ou formato personalizado",
-        "papel": "Couché 135g / 170g",
-        "impressao": "4/0 ou 4/4 cores",
-        "acabamentos": ["Corte", "Dobra se aplicável"],
-        "perguntas": ["Qual o formato final?", "Quantas unidades?", "Frente apenas ou frente e verso?", "Qual a gramagem do papel?", "Tem dobra?"],
-    },
-    "Cartaz": {
-        "keywords": ["cartaz", "poster", "a3", "a2", "mupi"],
-        "formato": "A3, A2, A1 ou formato personalizado",
-        "papel": "Couché 170g / 200g ou outro",
-        "impressao": "4/0 cores, normalmente só frente",
-        "acabamentos": ["Corte", "Plastificação opcional"],
-        "perguntas": ["Qual o formato final?", "Interior ou exterior?", "Qual a quantidade?", "Com ou sem plastificação?"],
-    },
-    "Lona": {
-        "keywords": ["lona", "banner", "faixa"],
-        "formato": "Medida personalizada em metros",
-        "papel": "Lona PVC",
-        "impressao": "Impressão digital grande formato",
-        "acabamentos": ["Corte", "Bainha opcional", "Ilhós opcional"],
-        "perguntas": ["Quais as medidas finais?", "Interior ou exterior?", "Com bainha?", "Com ilhós?", "Inclui aplicação/instalação?"],
-    },
-    "Vinil": {
-        "keywords": ["vinil", "autocolante", "sticker", "montra"],
-        "formato": "Medida personalizada",
-        "papel": "Vinil branco / transparente / recorte",
-        "impressao": "Impressão digital ou recorte",
-        "acabamentos": ["Corte", "Laminação opcional", "Aplicação opcional"],
-        "perguntas": ["Qual a medida?", "Vinil impresso ou de recorte?", "Interior ou exterior?", "Com laminação?", "Inclui aplicação?"],
-    },
-    "Revista / Brochura": {
-        "keywords": ["revista", "brochura", "catálogo", "catalogo", "livreto", "booklet"],
-        "formato": "A4, A5 ou personalizado fechado",
-        "papel": "Interior e capa podem ter papéis diferentes",
-        "impressao": "Impressão 1 para interior; Impressão 2 para capa se papel diferente",
-        "acabamentos": ["Corte", "Dobra", "Agrafo ou cola", "Plastificação da capa opcional"],
-        "perguntas": ["Quantas páginas interiores?", "Capa incluída?", "Papel da capa é diferente do interior?", "Agrafo ou lombada colada?", "Formato fechado?"],
-    },
-    "Roll-up": {
-        "keywords": ["roll up", "roll-up", "rollup", "expositor"],
-        "formato": "Normalmente 85x200 cm",
-        "papel": "Tela / material próprio para roll-up",
-        "impressao": "Impressão digital grande formato",
-        "acabamentos": ["Montagem em estrutura", "Bolsa de transporte"],
-        "perguntas": ["Qual a medida?", "Inclui estrutura?", "O cliente fornece arte-final?", "Prazo de entrega?"],
-    },
-}
+PRODUTOS = [
+    "Automático",
+    "Cartões de visita",
+    "Flyer / Panfleto",
+    "Cartaz",
+    "Lona",
+    "Vinil",
+    "Revista / Brochura",
+    "Roll-up",
+    "Outro"
+]
 
-FORMATOS = ["A6", "A5", "A4", "A3", "A2", "A1", "85x55", "90x50"]
-PAPEIS = ["135g", "170g", "200g", "250g", "300g", "350g"]
+def normalizar(texto):
+    return texto.lower().replace(",", ".").replace("×", "x")
 
+def identificar_produto(texto):
+    t = normalizar(texto)
+    if any(x in t for x in ["flyer", "panfleto", "folheto"]):
+        return "Flyer / Panfleto"
+    if any(x in t for x in ["cartão", "cartao", "visita"]):
+        return "Cartões de visita"
+    if "cartaz" in t or "poster" in t:
+        return "Cartaz"
+    if "lona" in t or "banner" in t:
+        return "Lona"
+    if "vinil" in t or "autocolante" in t:
+        return "Vinil"
+    if any(x in t for x in ["revista", "brochura", "catálogo", "catalogo"]):
+        return "Revista / Brochura"
+    if any(x in t for x in ["roll-up", "roll up", "rollup"]):
+        return "Roll-up"
+    return "Outro"
 
-def identificar_produto(texto: str):
-    t = texto.lower()
-    scores = {}
-    for produto, cfg in PRODUTOS.items():
-        score = sum(1 for k in cfg["keywords"] if k in t)
-        if score:
-            scores[produto] = score
-    if not scores:
-        return "Não identificado"
-    return max(scores, key=scores.get)
+def extrair_quantidade(texto):
+    t = normalizar(texto)
+    padrao = re.search(r"(\d{2,6})\s*(unidades|unds|unid|exemplares|flyers|folhetos|cartazes|cartões|cartoes)", t)
+    if padrao:
+        return padrao.group(1)
+    nums = re.findall(r"\b\d{2,6}\b", t)
+    return nums[-1] if nums else ""
 
+def extrair_modelos(texto):
+    t = normalizar(texto)
+    m = re.search(r"(\d+)\s*modelos?", t)
+    modelos = m.group(1) if m else ""
+    q = re.search(r"(\d+)\s*modelos?\s*x\s*(\d+)", t)
+    por_modelo = q.group(2) if q else ""
+    return modelos, por_modelo
 
-def extrair_quantidade(texto: str):
-    # Procura números antes de palavras típicas ou número isolado relevante
-    padroes = [
-        r"(\d+[\.,]?\d*)\s*(unidades|unid|unds|exemplares|flyers|cartazes|cartões|cartoes|revistas|lonas|roll)",
-        r"(\d+)\s*x",
-    ]
-    for p in padroes:
-        m = re.search(p, texto.lower())
-        if m:
-            return m.group(1).replace(".", "")
-    nums = re.findall(r"\b\d{2,6}\b", texto)
-    return nums[0] if nums else "Não indicado"
+def extrair_formato(texto):
+    t = normalizar(texto)
 
+    formatos_padrao = ["a7", "a6", "a5", "a4", "a3", "a2", "a1", "a0"]
+    for f in formatos_padrao:
+        if re.search(rf"\b{f}\b", t):
+            return f.upper()
 
-def extrair_formato(texto: str):
-    t = texto.upper().replace(" ", "")
-    for f in FORMATOS:
-        if f.replace(" ", "").upper() in t:
-            return f
-    m = re.search(r"\d+[,.]?\d*\s*[xX]\s*\d+[,.]?\d*\s*(cm|mm|m)?", texto)
-    return m.group(0) if m else "Não indicado"
+    m = re.search(r"(\d{2,4}(?:\.\d+)?)\s*(mm|cm|m)?\s*x\s*(\d{2,4}(?:\.\d+)?)\s*(mm|cm|m)?", t)
+    if m:
+        n1 = m.group(1).replace(".", ",")
+        n2 = m.group(3).replace(".", ",")
+        unidade = m.group(2) or m.group(4) or "mm"
+        return f"{n1} x {n2} {unidade}"
 
+    return ""
 
-def extrair_papel(texto: str):
-    for p in PAPEIS:
-        if p.lower() in texto.lower().replace(" ", ""):
-            return p
-    if "couch" in texto.lower():
-        return "Couché — gramagem não indicada"
-    return "Não indicado"
+def aproximar_formato(formato):
+    f = formato.lower().replace(" ", "")
+    if "105x147" in f or "105x148" in f:
+        return "A6 aproximado"
+    if "148x210" in f or "147x210" in f:
+        return "A5 aproximado"
+    if "210x297" in f:
+        return "A4"
+    if "297x420" in f:
+        return "A3"
+    return ""
 
+def extrair_papel(texto):
+    t = normalizar(texto)
+    gramagem = re.search(r"(\d{2,3})\s*(grs|gr|g|gsm)", t)
+    gram = f"{gramagem.group(1)} g" if gramagem else ""
 
-def extrair_cores(texto: str):
-    t = texto.lower()
-    if any(x in t for x in ["frente e verso", "2 lados", "dupla face"]):
-        return "4/4 cores, se for a cores dos dois lados"
-    if any(x in t for x in ["frente", "só frente", "so frente", "1 lado"]):
-        return "4/0 cores, se for a cores só frente"
-    if any(x in t for x in ["preto", "pb", "p/b"]):
-        return "Preto — confirmar 1/0 ou 1/1"
-    if any(x in t for x in ["cor", "cores", "colorido"]):
+    tipo = ""
+    if "couche" in t or "couché" in t:
+        tipo = "Couché"
+    if "mate" in t:
+        tipo = f"{tipo} mate".strip()
+    if "brilho" in t:
+        tipo = f"{tipo} brilho".strip()
+    if "offset" in t:
+        tipo = "Offset"
+    if "cartolina" in t:
+        tipo = "Cartolina"
+
+    if tipo and gram:
+        return f"{tipo} {gram}"
+    if tipo:
+        return tipo
+    if gram:
+        return gram
+    return ""
+
+def extrair_cores(texto):
+    t = normalizar(texto)
+    m = re.search(r"\b([124])\s*/\s*([124])\b", t)
+    if m:
+        return f"{m.group(1)}/{m.group(2)} cores"
+
+    if "frente e verso" in t or "2 lados" in t:
+        return "4/4 cores a confirmar"
+    if "1 face" in t or "só frente" in t or "so frente" in t:
+        return "4/0 cores a confirmar"
+    if "cores" in t or "cor" in t:
         return "A cores — confirmar 4/0 ou 4/4"
-    return "Não indicado"
+    return ""
 
-
-def detetar_acabamentos(texto: str):
-    t = texto.lower()
-    acab = []
-    mapa = {
-        "dobra": ["dobra", "dobrado", "vinco"],
-        "plastificação": ["plastificação", "plastificado", "laminação", "laminado"],
-        "agrafo": ["agrafo", "agrafado"],
-        "cola/lombada": ["cola", "lombada"],
-        "ilhós": ["ilhós", "ilhos"],
-        "bainha": ["bainha"],
-        "corte especial": ["corte especial", "corte forma"],
-    }
-    for nome, keys in mapa.items():
-        if any(k in t for k in keys):
-            acab.append(nome)
-    return acab or ["Não indicado — confirmar se apenas leva corte normal"]
 def extrair_acabamentos(texto):
-    texto = texto.lower()
+    t = normalizar(texto)
     acabamentos = []
 
-    palavras_chave = {
-        "plastificação mate": ["plastificado mate", "plastificação mate", "plastificado 1 face", "plastificação 1 face"],
-        "plastificação brilho": ["plastificado brilho", "plastificação brilho"],
-        "corte": ["corte", "cortado", "aparado"],
-        "dobra": ["dobra", "dobrado", "vinco"],
-        "agrafo": ["agrafo", "agrafado", "agrafar"],
-        "encadernação": ["encadernação", "encadernado"],
-        "furação": ["furação", "furado"],
-        "ilhós": ["ilhós", "ilhoses"],
-        "bainha": ["bainha"],
-        "laminação": ["laminação", "laminado"]
-    }
+    if "plastificado mate" in t or "plastificação mate" in t or "plastificacao mate" in t:
+        if "1 face" in t:
+            acabamentos.append("Plastificação mate 1 face")
+        else:
+            acabamentos.append("Plastificação mate")
+    elif "plastificado" in t or "plastificação" in t or "plastificacao" in t:
+        acabamentos.append("Plastificação — confirmar tipo e faces")
 
-    for acabamento, termos in palavras_chave.items():
-        for termo in termos:
-            if termo in texto:
-                acabamentos.append(acabamento)
-                break
+    if "dobra" in t or "dobrado" in t or "vinco" in t:
+        acabamentos.append("Dobra / vinco")
+    if "agrafo" in t or "agrafado" in t:
+        acabamentos.append("Agrafo")
+    if "ilhós" in t or "ilhos" in t:
+        acabamentos.append("Ilhós")
+    if "bainha" in t:
+        acabamentos.append("Bainha")
+    if "corte especial" in t or "corte forma" in t:
+        acabamentos.append("Corte especial")
 
-    if not acabamentos:
-        acabamentos.append("Sem acabamento identificado")
+    return acabamentos
 
-    return ", ".join(acabamentos)
-
-def gerar_resumo(texto, produto_manual):
-    produto = produto_manual if produto_manual != "Automático" else identificar_produto(texto)
-    cfg = PRODUTOS.get(produto, {})
-    quantidade = extrair_quantidade(texto)
-    formato = extrair_formato(texto)
-    papel = extrair_papel(texto)
-    cores = extrair_cores(texto)
-    acabamentos = extrair_acabamentos(texto)
-
+def perguntas_em_falta(dados):
     perguntas = []
-    if cfg:
-        perguntas.extend(cfg["perguntas"])
-    if quantidade == "Não indicado": perguntas.append("Qual a quantidade pretendida?")
-    if formato == "Não indicado": perguntas.append("Qual o formato/medida final?")
-    if papel == "Não indicado": perguntas.append("Qual o papel/material pretendido?")
-    if cores == "Não indicado": perguntas.append("A impressão é só frente ou frente e verso? A cores ou preto?")
-    perguntas.append("O cliente fornece arte-final pronta para impressão?")
-    perguntas.append("Existe prazo de entrega obrigatório?")
 
-    # remover duplicados mantendo ordem
-    perguntas_unicas = []
-    for p in perguntas:
-        if p not in perguntas_unicas:
-            perguntas_unicas.append(p)
+    if not dados["formato"]:
+        perguntas.append("Qual é o formato final?")
+    if not dados["quantidade"]:
+        perguntas.append("Qual é a quantidade total?")
+    if not dados["papel"]:
+        perguntas.append("Qual é o papel/material e gramagem?")
+    if not dados["cores"]:
+        perguntas.append("A impressão é 4/0, 4/4, 4/1 ou 4/2?")
+    if not dados["arte_final"]:
+        perguntas.append("O cliente fornece arte-final pronta para impressão?")
+    if not dados["prazo"]:
+        perguntas.append("Existe prazo de entrega obrigatório?")
+    if dados["acabamentos"] == []:
+        perguntas.append("Leva algum acabamento além do corte normal?")
 
-    return produto, quantidade, formato, papel, cores, acabamentos, perguntas_unicas
+    return perguntas
 
-# ----------------------------
-# Interface
-# ----------------------------
 with st.sidebar:
     st.header("Configuração")
-    produto_manual = st.selectbox("Tipo de trabalho", ["Automático"] + list(PRODUTOS.keys()))
+    produto_manual = st.selectbox("Tipo de trabalho", PRODUTOS)
     cliente = st.text_input("Cliente", "")
     data_pedido = st.date_input("Data do pedido", value=date.today())
 
 pedido = st.text_area(
     "Cole aqui o pedido do cliente",
-    height=180,
-    placeholder="Ex.: Preciso de orçamento para 1000 flyers A5, frente e verso, a cores, em papel couché 135g..."
+    height=170,
+    placeholder="Ex.: Flyers couché mate 350 grs, formato 105 mm x 147 mm, 4/2 cores, plastificado mate 1 face, 500 unidades..."
 )
 
-if st.button("Gerar guião GGWEB", type="primary"):
-    if not pedido.strip():
-        st.warning("Insira primeiro o pedido do cliente.")
-        st.stop()
+if pedido.strip():
+    produto_detectado = identificar_produto(pedido)
+    produto = produto_detectado if produto_manual == "Automático" else produto_manual
 
-    produto, quantidade, formato, papel, cores, acabamentos, perguntas = gerar_resumo(pedido, produto_manual)
-    cfg = PRODUTOS.get(produto, {})
+    modelos, por_modelo = extrair_modelos(pedido)
 
-    st.subheader("1. Interpretação do pedido")
+    dados = {
+        "produto": produto,
+        "quantidade": extrair_quantidade(pedido),
+        "modelos": modelos,
+        "por_modelo": por_modelo,
+        "formato": extrair_formato(pedido),
+        "formato_aprox": aproximar_formato(extrair_formato(pedido)),
+        "papel": extrair_papel(pedido),
+        "cores": extrair_cores(pedido),
+        "acabamentos": extrair_acabamentos(pedido),
+        "arte_final": "",
+        "prazo": ""
+    }
+
+    st.subheader("1. Pedido interpretado")
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("Produto", produto)
-    col2.metric("Quantidade", quantidade)
-    col3.metric("Formato", formato)
+    col1.metric("Produto", dados["produto"])
+    col2.metric("Quantidade", dados["quantidade"] or "Por confirmar")
+    col3.metric("Formato", dados["formato"] or "Por confirmar")
 
-    st.write("**Papel/material identificado:**", papel)
-    st.write("**Impressão/cores:**", cores)
-    st.write("**Acabamentos identificados:**", ", ".join(acabamentos))
+    st.write("**Formato aproximado:**", dados["formato_aprox"] or "Não aplicável")
+    st.write("**Papel/material:**", dados["papel"] or "Por confirmar")
+    st.write("**Impressão/cores:**", dados["cores"] or "Por confirmar")
+    st.write("**Acabamentos:**", ", ".join(dados["acabamentos"]) if dados["acabamentos"] else "A confirmar")
 
-    st.subheader("2. Informação em falta ou a confirmar")
-    for p in perguntas:
-        st.checkbox(p, value=False)
+    st.subheader("2. Confirmar ou corrigir dados")
 
-    st.subheader("3. Guião de preenchimento no GGWEB")
+    c1, c2 = st.columns(2)
 
-    st.markdown("### Descrição do trabalho")
-    descricao = f"{produto} | Qtd: {quantidade} | Formato: {formato} | Papel/material: {papel} | Impressão: {cores} | Acabamentos: {', '.join(acabamentos)}"
-    st.code(descricao, language="text")
+    with c1:
+        produto_final = st.selectbox("Produto", PRODUTOS[1:], index=PRODUTOS[1:].index(dados["produto"]) if dados["produto"] in PRODUTOS[1:] else 0)
+        quantidade_final = st.text_input("Quantidade total", dados["quantidade"])
+        modelos_final = st.text_input("N.º de modelos", dados["modelos"])
+        por_modelo_final = st.text_input("Quantidade por modelo", dados["por_modelo"])
+        formato_final = st.text_input("Formato final", dados["formato"])
+        papel_final = st.text_input("Papel/material", dados["papel"])
 
-    st.markdown("### Pré-impressão")
-    st.write("Preencher quando existir preparação, verificação, adaptação ou criação de ficheiro.")
-    st.write("Sugestão: confirmar se a arte-final vem pronta para impressão. Se não vier, estimar tempo de operador.")
+    with c2:
+        cores_final = st.text_input("Impressão/cores", dados["cores"])
+        acabamentos_final = st.text_area("Acabamentos", ", ".join(dados["acabamentos"]))
+        arte_final = st.selectbox("Arte-final", ["Por confirmar", "Cliente fornece arte-final pronta", "Necessita adaptação", "Necessita criação"])
+        prazo = st.text_input("Prazo de entrega", "")
+        observacoes = st.text_area("Observações internas", "")
 
-    st.markdown("### Impressão 1")
-    st.write("Usar para o suporte principal do trabalho.")
-    st.write(f"- Produto/material: {papel}")
-    st.write(f"- Formato: {formato}")
-    st.write(f"- Quantidade: {quantidade}")
-    st.write(f"- Cores: {cores}")
-    st.write("- Corte: normalmente sim, salvo trabalhos de grande formato ou material já final.")
+    dados_corrigidos = {
+        "produto": produto_final,
+        "quantidade": quantidade_final,
+        "modelos": modelos_final,
+        "por_modelo": por_modelo_final,
+        "formato": formato_final,
+        "papel": papel_final,
+        "cores": cores_final,
+        "acabamentos": [a.strip() for a in acabamentos_final.split(",") if a.strip()],
+        "arte_final": arte_final,
+        "prazo": prazo
+    }
 
-    st.markdown("### Impressão 2")
-    if produto == "Revista / Brochura":
-        st.write("Usar se a capa tiver papel diferente do interior.")
-        st.write("Exemplo: interior em 135g e capa em 300g.")
+    st.subheader("3. Informação em falta")
+
+    faltas = perguntas_em_falta(dados_corrigidos)
+    if faltas:
+        for f in faltas:
+            st.warning(f)
     else:
-        st.write("Normalmente não usar, salvo se existir segundo papel/material diferente.")
+        st.success("Pedido com informação suficiente para preparar o guião GGWEB.")
 
-    st.markdown("### Outras tarefas")
-    st.write("Selecionar acabamentos e operações adicionais:")
-    for a in acabamentos:
-        st.write(f"- {a}")
+    st.subheader("4. Linguagem técnica de gráfica")
 
-    st.markdown("### Subcontratações")
-    st.write("Usar apenas se houver trabalho externo: aplicação, estrutura, acabamento fora, transporte especial, etc.")
+    descricao_tecnica = (
+        f"{dados_corrigidos['quantidade']} unidades de {dados_corrigidos['produto']}, "
+        f"formato {dados_corrigidos['formato']}, "
+        f"em {dados_corrigidos['papel']}, "
+        f"impressão {dados_corrigidos['cores']}"
+    )
 
-    st.markdown("### Recalcular")
-    st.write("Depois de preencher todas as secções, clicar em Recalcular no GGWEB.")
+    if dados_corrigidos["modelos"]:
+        descricao_tecnica += f", {dados_corrigidos['modelos']} modelos"
+    if dados_corrigidos["por_modelo"]:
+        descricao_tecnica += f" x {dados_corrigidos['por_modelo']} unidades"
+    if dados_corrigidos["acabamentos"]:
+        descricao_tecnica += f", acabamento: {', '.join(dados_corrigidos['acabamentos'])}"
 
-    st.subheader("4. Nota interna")
-    st.info("Este guião é uma proposta de apoio. Confirmar sempre com a produção em trabalhos fora do padrão, materiais especiais, prazos urgentes ou acabamentos não habituais.")
+    st.code(descricao_tecnica, language="text")
+
+    st.subheader("5. Guião de preenchimento no GGWEB")
+
+    st.markdown("### A. Descrição do trabalho")
+    st.code(descricao_tecnica, language="text")
+
+    st.markdown("### B. Pré-impressão")
+    if arte_final == "Cliente fornece arte-final pronta":
+        st.write("Preencher apenas verificação/preparação de ficheiro para impressão.")
+        st.write("Sugestão: tempo reduzido de operador, apenas para conferência técnica.")
+    elif arte_final == "Necessita adaptação":
+        st.write("Preencher tempo de operador/design para adaptação da arte-final.")
+        st.write("Confirmar se é apenas ajuste de medidas, margens, sangrias ou alteração de conteúdos.")
+    elif arte_final == "Necessita criação":
+        st.write("Preencher tempo de criação gráfica.")
+        st.write("Este ponto deve ser valorizado separadamente da impressão.")
+    else:
+        st.write("Confirmar se a arte-final vem pronta para impressão.")
+        st.write("Sem esta informação, não é seguro fechar a pré-impressão.")
+
+    st.markdown("### C. Impressão 1")
+    st.write("Usar para o suporte principal do trabalho.")
+    st.write(f"- Produto/material: {dados_corrigidos['papel'] or 'por confirmar'}")
+    st.write(f"- Quantidade: {dados_corrigidos['quantidade'] or 'por confirmar'}")
+    st.write(f"- Formato final: {dados_corrigidos['formato'] or 'por confirmar'}")
+    st.write(f"- Cores: {dados_corrigidos['cores'] or 'por confirmar'}")
+    if dados_corrigidos["modelos"]:
+        st.write(f"- Modelos: {dados_corrigidos['modelos']} modelos")
+    if dados_corrigidos["por_modelo"]:
+        st.write(f"- Quantidade por modelo: {dados_corrigidos['por_modelo']} unidades")
+    st.write("- Corte: considerar corte final ao formato indicado.")
+
+    st.markdown("### D. Impressão 2")
+    if dados_corrigidos["produto"] == "Revista / Brochura":
+        st.write("Usar apenas se capa e miolo tiverem papéis diferentes.")
+    else:
+        st.write("Não preencher, salvo se existir um segundo suporte/papel diferente.")
+
+    st.markdown("### E. Outras tarefas")
+    if dados_corrigidos["acabamentos"]:
+        for a in dados_corrigidos["acabamentos"]:
+            st.write(f"- Selecionar/adicionar: {a}")
+    else:
+        st.write("- Confirmar se existe apenas corte normal ou algum acabamento adicional.")
+
+    st.markdown("### F. Subcontratações")
+    st.write("Preencher apenas se alguma tarefa for externa: plastificação externa, aplicação, transporte, estrutura, acabamento especial ou outro fornecedor.")
+
+    st.markdown("### G. Recalcular")
+    st.write("Depois de preencher descrição, pré-impressão, impressão, outras tarefas e subcontratações, clicar em Recalcular no GGWEB.")
+
+    st.subheader("6. Nota interna")
+    st.info("Este guião serve para apoiar o preenchimento. Confirmar sempre com a produção quando houver materiais especiais, formatos fora do padrão, acabamentos pouco habituais ou prazos urgentes.")
 
 else:
-    st.info("Insira o pedido do cliente e clique em 'Gerar guião GGWEB'.")
-
-st.divider()
-st.caption("Versão inicial. A precisão aumenta com exemplos reais de orçamentos já preenchidos no GGWEB.")
+    st.info("Cole o pedido do cliente para gerar o guião GGWEB.")
