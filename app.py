@@ -146,7 +146,33 @@ def detetar_acabamentos(texto: str):
         if any(k in t for k in keys):
             acab.append(nome)
     return acab or ["Não indicado — confirmar se apenas leva corte normal"]
+def extrair_acabamentos(texto):
+    texto = texto.lower()
+    acabamentos = []
 
+    palavras_chave = {
+        "plastificação mate": ["plastificado mate", "plastificação mate", "plastificado 1 face", "plastificação 1 face"],
+        "plastificação brilho": ["plastificado brilho", "plastificação brilho"],
+        "corte": ["corte", "cortado", "aparado"],
+        "dobra": ["dobra", "dobrado", "vinco"],
+        "agrafo": ["agrafo", "agrafado", "agrafar"],
+        "encadernação": ["encadernação", "encadernado"],
+        "furação": ["furação", "furado"],
+        "ilhós": ["ilhós", "ilhoses"],
+        "bainha": ["bainha"],
+        "laminação": ["laminação", "laminado"]
+    }
+
+    for acabamento, termos in palavras_chave.items():
+        for termo in termos:
+            if termo in texto:
+                acabamentos.append(acabamento)
+                break
+
+    if not acabamentos:
+        acabamentos.append("Sem acabamento identificado")
+
+    return ", ".join(acabamentos)
 
 def gerar_resumo(texto, produto_manual):
     produto = produto_manual if produto_manual != "Automático" else identificar_produto(texto)
