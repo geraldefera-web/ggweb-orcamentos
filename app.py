@@ -708,11 +708,11 @@ if pedido.strip():
         st.write("- Confirmar bainha/ilhós/laminação/aplicação, se aplicável.")
 
     st.markdown("### F. Subcontratações")
-    if dados_corrigidos.get["subcontracao"] or dados_corrigidos.get["subcontratacoes_detectadas"]:
+    if dados_corrigidos.get("subcontracao"]) or dados_corrigidos.get("subcontratacoes_detectadas"):
         st.error("Preencher subcontratação externa.")
-        if dados_corrigidos.get["subcontracao"]:
+        if dados_corrigidos.get("subcontracao"):
             st.write(f"- Subcontratação indicada: {dados_corrigidos['subcontracao']}")
-        if dados_corrigidos.get["subcontratacoes_detectadas"]:
+        if dados_corrigidos.get("subcontratacoes_detectadas"):
             st.write(f"- Processos detetados: {', '.join(dados_corrigidos['subcontratacoes_detectadas'])}")
         st.write("- Confirmar fornecedor externo, custo, prazo e margem.")
     else:
