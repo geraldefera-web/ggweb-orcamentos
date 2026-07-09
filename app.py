@@ -195,3 +195,230 @@ def extrair_acabamentos(texto):
         acabamentos.append("Colagem")
 
     return acabamentos
+
+def detetar_subcontratacao(texto):
+    t = normalizar(texto)
+    palavras = [
+        "termo-estampagem",
+        "termo estampagem",
+        "hot stamping",
+        "stamping",
+        "verniz uv",
+        "uv localizado",
+        "relevo",
+        "cunho",
+        "gravação",
+        "gravacao",
+        "corte laser",
+        "aplicação externa",
+        "aplicacao externa",
+        "fornecedor externo"
+    ]
+
+    encontrados = [p for p in palavras if p in t]
+    return encontrados
+
+def sugerir_equipamento(produto, quantidade):
+    try:
+        qtd = int(quantidade)
+    except:
+        qtd = 0
+
+    if produto in ["Lona", "Vinil", "Roll-up", "PVC / Placa rígida"]:
+        return "Impressão digital / grande formato"
+
+    if qtd >= 1000:
+        return "Offset recomendado"
+
+    if qtd > 0:
+        return "Impressão digital recomendada"
+
+    return "Por definir após confirmação da quantidade"
+
+def patamares_exigencia(produto):
+    if produto == "Livro / Brochura / Catálogo":
+        return {
+            "complexidade": "Alta",
+            "risco": "Elevado",
+            "alerta": "Pedido identificado como livro/brochura/catálogo. Confirmar estrutura, capa, miolo, guardas, forra, acabamento, embalagem e possível segundo miolo.",
+            "campos": [
+                "Quantidade",
+                "Formato aberto e formato fechado, se aplicável",
+                "N.º de páginas",
+                "Capa: papel, cores e acabamento",
+                "Miolo 1: papel, cores, páginas e planos",
+                "Miolo 2: se existir papel/cores diferentes",
+                "Guardas",
+                "Forra",
+                "Pantones",
+                "Equipamento: digital ou offset",
+                "Acabamento: agrafo, cola, lombada, corte, plastificação",
+                "Tipo de embalagem",
+                "Subcontratações"
+            ]
+        }
+
+    if produto in ["Lona", "Vinil", "Roll-up", "PVC / Placa rígida"]:
+        return {
+            "complexidade": "Média",
+            "risco": "Médio",
+            "alerta": "Pedido de grande formato/preço por m². Confirmar medidas, quantidade, área total, material, acabamento, aplicação e transporte.",
+            "campos": [
+                "Quantidade",
+                "Largura",
+                "Altura",
+                "Área unitária em m²",
+                "Área total em m²",
+                "Material",
+                "Impressão",
+                "Revestimento/laminação, se aplicável",
+                "Acabamento",
+                "Aplicação/instalação",
+                "Entrega/transporte"
+            ]
+        }
+
+    if produto == "Embalagem / Caixa":
+        return {
+            "complexidade": "Alta",
+            "risco": "Elevado",
+            "alerta": "Pedido identificado como embalagem/caixa. Confirmar formato planificado, matéria-prima, impressão, revestimento, corte/vinco, colagem e eventuais subcontratações.",
+            "campos": [
+                "Quantidade",
+                "Formato planificado",
+                "Matéria-prima",
+                "Impressão",
+                "Pantones",
+                "Revestimento",
+                "Outros processos",
+                "Corte/Vinco",
+                "Colagem",
+                "Entrega",
+                "Subcontratação externa"
+            ]
+        }
+
+    return {
+        "complexidade": "Normal",
+        "risco": "Baixo/Médio",
+        "alerta": "Pedido de produção gráfica simples. Confirmar formato, quantidade, papel, cores, arte-final e acabamento.",
+        "campos": [
+            "Quantidade",
+            "Formato",
+            "Papel/material",
+            "Cores",
+            "Arte-final",
+            "Acabamentos",
+            "Prazo"
+        ]
+    }
+
+def gerar_descricao_estruturada(dados):
+    linhas = []
+
+    linhas.append(f"Produto: {dados.get('produto') or '[por confirmar]'}")
+
+    if dados.get("quantidade"):
+        linhas.append(f"Quantidade: {dados.get('quantidade')} unidades")
+    else:
+        linhas.append("Quantidade: [por confirmar]")
+
+    if dados.get("formato"):
+        if dados.get("produto") == "Embalagem / Caixa":
+            linhas.append(f"Formato planificado: {dados.get('formato')}")
+        else:
+            linhas.append(f"Formato/medida: {dados.get('formato')}")
+    else:
+        linhas.append("Formato/medida: [por confirmar]")
+
+    if dados.get("area_total"):
+        linhas.append(f"Área total: {dados.get('area_total')} m²")
+
+    if dados.get("papel"):
+        linhas.append(f"Matéria-prima: {dados.get('papel')}")
+    else:
+        linhas.append("Matéria-prima: [por confirmar]")
+
+    if dados.get("cores"):
+        linhas.append(f"Impressão: {dados.get('cores')}")
+    else:
+        linhas.append("Impressão: [por confirmar]")
+
+    if dados.get("revestimento"):
+        linhas.append(f"Revestimento: {dados.get('revestimento')}")
+    elif any("plastificação" in a.lower() or "laminação" in a.lower() for a in dados.get("acabamentos", [])):
+        revest = [a for a in dados.get("acabamentos", []) if "plastificação" in a.lower() or "laminação" in a.lower()]
+        linhas.append(f"Revestimento: {', '.join(revest)}")
+    else:
+        linhas.append("Revestimento: [não indicado / não aplicável]")
+
+    outros = []
+    if dados.get("subcontratacoes_detectadas"):
+        outros.extend(dados.get("subcontratacoes_detectadas"))
+    if dados.get("outros"):
+        outros.append(dados.get("outros"))
+
+    if outros:
+        linhas.append(f"Outro: {', '.join(outros)}")
+
+    acabamento = dados.get("acabamento_texto") or ", ".join(dados.get("acabamentos", []))
+    if acabamento:
+        linhas.append(f"Acabamento: {acabamento}")
+    else:
+        linhas.append("Acabamento: [confirmar se apenas corte normal]")
+
+    if dados.get("entrega"):
+        linhas.append(f"Entrega: {dados.get('entrega')}")
+    else:
+        linhas.append("Entrega: [por confirmar]")
+
+    return "\n".join(linhas)
+
+def perguntas_em_falta(dados):
+    perguntas = []
+
+    campos_base = [
+        ("quantidade", "Qual é a quantidade total?"),
+        ("formato", "Qual é o formato/medida final?"),
+        ("papel", "Qual é a matéria-prima/papel/material?"),
+        ("cores", "Qual é o tipo de impressão? 4/0, 4/4, 4/2, Pantone ou digital?"),
+        ("arte_final", "O cliente fornece arte-final pronta para impressão?"),
+        ("entrega", "Qual é a forma de entrega? Levantamento, entrega na Selecor, transporte ou instalação?")
+    ]
+
+    for campo, pergunta in campos_base:
+        if not dados.get(campo):
+            perguntas.append(pergunta)
+
+    if dados["produto"] in ["Lona", "Vinil", "Roll-up", "PVC / Placa rígida"]:
+        if not dados.get("area_total"):
+            perguntas.append("Confirmar largura, altura e quantidade para cálculo de m².")
+        if not dados.get("acabamento_texto") and not dados.get("acabamentos"):
+            perguntas.append("Qual é o acabamento? Corte, bainha, ilhós, laminação, aplicação?")
+        if not dados.get("aplicacao"):
+            perguntas.append("Inclui aplicação/instalação?")
+
+    if dados["produto"] == "Livro / Brochura / Catálogo":
+        livro_campos = [
+            ("paginas", "Quantas páginas tem?"),
+            ("capa", "A capa tem papel, cores ou acabamento próprio?"),
+            ("miolo_1", "Qual é o papel, cores e páginas do miolo principal?"),
+            ("guardas", "Tem guardas?"),
+            ("forra", "Tem forra?"),
+            ("embalagem", "Qual é o tipo de embalagem?"),
+        ]
+        for campo, pergunta in livro_campos:
+            if not dados.get(campo):
+                perguntas.append(pergunta)
+
+    if dados["produto"] == "Embalagem / Caixa":
+        caixa_campos = [
+            ("revestimento", "Tem revestimento/plastificação?"),
+            ("acabamento_texto", "Qual é o acabamento? Corte/Vinco, colagem, dobra?"),
+            ("outros", "Existe algum processo especial, como termo-estampagem ou verniz UV?"),
+        ]
+        for campo, pergunta in caixa_campos:
+            if not dados.get(campo):
+                perguntas.append(pergunta)
+
+    return perguntas
